@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GRIP: Ground Reaction Inertial Poser</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="static/css/style.css" />
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     HEADER
+════════════════════════════════════════ -->
+<header class="header">
+  <div class="container">
+    <h1 class="title">
+      <span class="model-name">Ground Reaction Inertial Poser (GRIP)</span><br />
+      <span style="font-size:0.72em; font-weight:600; color:#475569;">
+        Physics-based Human Motion Capture<br />from Sparse IMUs and Insole Pressure Sensors
+      </span>
+    </h1>
+
+    <p class="authors">
+      <a href="https://ryosukehori.github.io/" target="_blank">Ryosuke Hori</a><sup>1,2,3</sup>&ensp;
+      <a href="https://jyuntins.github.io/" target="_blank">Jyun-Ting Song</a><sup>1</sup>&ensp;
+      <a href="https://www.zhengyiluo.com/" target="_blank">Zhengyi Luo</a><sup>1</sup>&ensp;
+      <a href="https://www.jinkuncao.com/" target="_blank">Jinkun Cao</a><sup>1</sup>&ensp;
+      <a href="https://yohanshin.github.io/" target="_blank">Soyong Shin</a><sup>1</sup>&ensp;
+      <a href="https://www.st.keio.ac.jp/en/tprofile/ics/hideo.saito.html" target="_blank">Hideo Saito</a><sup>2,3</sup>&ensp;
+      <a href="https://kriskitani.github.io/" target="_blank">Kris Kitani</a><sup>1</sup>
+    </p>
+
+    <p class="affiliation">
+      <sup>1</sup>Carnegie Mellon University&emsp;
+      <sup>2</sup>Keio University&emsp;
+      <sup>3</sup>Keio AI Research Center
+    </p>
+
+    <div class="venue-badge">CVPR 2026</div>
+
+    <div class="buttons">
+      <a class="btn" href="javascript:void(0)">
+        <i class="fas fa-file-pdf"></i> Paper
+      </a>
+      <a class="btn" href="javascript:void(0)">
+        <i class="fas fa-archive"></i> arXiv
+      </a>
+      <a class="btn" href="javascript:void(0)">
+        <i class="fab fa-github"></i> Code
+      </a>
+      <a class="btn" href="#video">
+        <i class="fas fa-play-circle"></i> Video
+      </a>
+    </div>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════
+     OVERVIEW FIGURE
+════════════════════════════════════════ -->
+<section class="section" style="background:#fff; padding-top:40px; padding-bottom:40px;">
+  <div class="container">
+    <div class="image-wrap teaser-wrap">
+      <img src="images/teaser.png" alt="GRIP Overview" class="result-image teaser-img" />
+      <p class="image-caption" style="text-align:left;">
+        Overview of the proposed <strong>Ground Reaction Inertial Poser (GRIP)</strong>.
+        (a) GRIP observes motion using four IMUs and foot pressure data from smartwatches and smart insoles.
+        (b) Full-body motion is reconstructed by driving a humanoid with joint torques in a physics simulator.
+        (c) The PRISM dataset offers multimodal measurements, including IMUs, foot pressure, motion data, and environmental data.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     VIDEO
+════════════════════════════════════════ -->
+<section class="section section-alt" id="video">
+  <div class="container">
+    <h2 class="section-title">Video</h2>
+    <div class="video-container">
+      <video autoplay muted loop playsinline controls>
+        <source src="videos/SupplementaryVideo.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     ABSTRACT
+════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">Abstract</h2>
+    <p class="abstract-text">
+      We propose <strong>Ground Reaction Inertial Poser (GRIP)</strong>, a method that reconstructs
+      physically plausible human motion using four wearable devices. Unlike conventional IMU-only
+      approaches, GRIP combines IMU signals with foot pressure data to capture both body dynamics
+      and ground interactions. Furthermore, rather than relying solely on kinematic estimation, GRIP
+      uses a digital twin of a person, in the form of a synthetic humanoid in a physics simulator,
+      to reconstruct realistic and physically plausible motion. At its core, GRIP consists of two
+      modules: <strong>KinematicsNet</strong>, which estimates body poses and velocities from sensor
+      data, and <strong>DynamicsNet</strong>, which controls the humanoid in the simulator using the
+      residual between the KinematicsNet prediction and the simulated humanoid state. To enable
+      robust training and fair evaluation, we introduce a large-scale dataset,
+      <strong>Pressure and Inertial Sensing for Human Motion and Interaction (PRISM)</strong>, that
+      captures diverse human motions with synchronized IMUs and insole pressure sensors.
+      Experimental results show that GRIP outperforms existing IMU-only and IMU&ndash;pressure
+      fusion methods across all evaluated datasets, achieving higher global pose accuracy and
+      improved physical consistency. Code and data will be released upon acceptance.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     METHOD
+════════════════════════════════════════ -->
+<section class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">Method</h2>
+
+    <div class="image-wrap">
+      <img src="images/network.png" alt="GRIP Framework" class="result-image large" />
+      <p class="image-caption">
+        Overview of the GRIP framework. <strong>Input Data</strong> consists of IMU and insole measurements.
+        <strong>KinematicsNet</strong> estimates kinematic states, and the <strong>State Difference</strong>
+        compares them with the simulated humanoid.
+        <strong>DynamicsNet</strong> drives the humanoid through physics simulation-based control.
+        The <strong>PRISM dataset</strong> provides diverse multi-modal training data.
+      </p>
+    </div>
+
+    <div class="method-grid">
+      <div class="method-item">
+        <h3>Input Data</h3>
+        <p>
+          GRIP takes four IMU signals (two wrists, two insole-embedded) and foot pressure data,
+          including vertical ground reaction forces (GRF), center of pressure (CoP), and binary
+          contact labels. Sensors are compact enough for everyday wear.
+        </p>
+      </div>
+      <div class="method-item">
+        <h3>KinematicsNet</h3>
+        <p>
+          A progressive LSTM-based network that estimates leaf-joint positions, full-joint positions,
+          full-body joint angles, and leaf-joint velocities from raw sensor inputs frame by frame.
+          Outputs are stored in a history buffer for fall recovery.
+        </p>
+      </div>
+      <div class="method-item">
+        <h3>State Difference</h3>
+        <p>
+          An intermediate representation capturing discrepancies between the KinematicsNet estimates
+          and the simulated humanoid state. Includes leaf-joint rotational/velocity differences and
+          full-body root-relative joint position differences.
+        </p>
+      </div>
+      <div class="method-item">
+        <h3>DynamicsNet</h3>
+        <p>
+          A physics-based MLP policy trained with PPO that drives a torque-controlled humanoid in
+          a simulator. Observations include sensor data, State Difference, self-state, and environment
+          height map. A fall recovery mechanism ensures stable inference.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     PRISM DATASET
+════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">PRISM Dataset</h2>
+    <p class="abstract-text" style="margin-bottom:28px;">
+      To enable robust training and fair evaluation of GRIP, we introduce
+      <strong>Pressure and Inertial Sensing for Human Motion and Interaction (PRISM)</strong>,
+      a new large-scale multimodal dataset capturing diverse human motions with synchronized
+      IMUs and insole pressure sensors, optical motion capture, and physical object models.
+      PRISM covers daily activities (walking, jogging), slow movements (stretching, squats),
+      fast sports actions (golf, baseball, soccer), and object interactions (stepping onto or
+      sitting on objects). The dataset consists of <strong>1,275 ten-second sequences</strong>
+      from six subjects (~3.5 hours total) at 100 Hz, with SMPL pose labels obtained via MoSh.
+    </p>
+    <div class="prism-player">
+      <button class="prism-nav" onclick="datasetSlider.go(-1)" aria-label="Previous">&#8249;</button>
+      <div class="prism-viewport">
+        <div class="prism-track" id="datasetTrack">
+          <div class="prism-slide">
+            <video class="prism-video" muted loop playsinline>
+              <source src="videos/PRISM-1.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div class="prism-slide">
+            <video class="prism-video" muted loop playsinline>
+              <source src="videos/PRISM-2.mp4" type="video/mp4" />
+            </video>
+          </div>
+        </div>
+      </div>
+      <button class="prism-nav" onclick="datasetSlider.go(1)" aria-label="Next">&#8250;</button>
+    </div>
+    <div class="prism-dots" id="datasetDots">
+      <span class="prism-dot active" onclick="datasetSlider.goTo(0)"></span>
+      <span class="prism-dot" onclick="datasetSlider.goTo(1)"></span>
+    </div>
+    <p class="image-caption" style="margin-top:16px;">
+      PRISM dataset provides multimodal measurements including IMUs, foot pressure, motion capture,
+      and 3D environment models for physically consistent motion evaluation.
+    </p>
+    <div style="text-align:center; margin-top:24px;">
+      <a class="btn" href="#" style="pointer-events:none; opacity:0.6; cursor:default;">
+        <i class="fas fa-database"></i> Download Dataset <span style="font-weight:400;">(Coming Soon)</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     RESULTS
+════════════════════════════════════════ -->
+<section class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">Results</h2>
+
+    <!-- Qualitative video slider -->
+    <h3 style="font-size:1.15rem; font-weight:700; margin-bottom:16px; text-align:center;">
+      Qualitative Comparison
+    </h3>
+    <div class="prism-player" style="margin-bottom:48px;">
+      <button class="prism-nav" onclick="resultSlider.go(-1)" aria-label="Previous">&#8249;</button>
+      <div class="prism-viewport">
+        <div class="prism-track" id="resultTrack">
+          <div class="prism-slide">
+            <video class="prism-video" muted loop playsinline>
+              <source src="videos/PRISM_Result1.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div class="prism-slide">
+            <video class="prism-video" muted loop playsinline>
+              <source src="videos/PRISM_Result2.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div class="prism-slide">
+            <video class="prism-video" muted loop playsinline>
+              <source src="videos/UP_Result1.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div class="prism-slide">
+            <video class="prism-video" muted loop playsinline>
+              <source src="videos/UP_Result2.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div class="prism-slide">
+            <video class="prism-video" muted loop playsinline>
+              <source src="videos/PSU_Result1.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div class="prism-slide">
+            <video class="prism-video" muted loop playsinline>
+              <source src="videos/PSU_Result2.mp4" type="video/mp4" />
+            </video>
+          </div>
+        </div>
+      </div>
+      <button class="prism-nav" onclick="resultSlider.go(1)" aria-label="Next">&#8250;</button>
+    </div>
+    <div class="prism-dots" id="resultDots">
+      <span class="prism-dot active" onclick="resultSlider.goTo(0)"></span>
+      <span class="prism-dot" onclick="resultSlider.goTo(1)"></span>
+      <span class="prism-dot" onclick="resultSlider.goTo(2)"></span>
+      <span class="prism-dot" onclick="resultSlider.goTo(3)"></span>
+      <span class="prism-dot" onclick="resultSlider.goTo(4)"></span>
+      <span class="prism-dot" onclick="resultSlider.goTo(5)"></span>
+    </div>
+    <p class="image-caption" style="margin-bottom:48px;">
+      Qualitative comparison across the three datasets.
+      Our method accurately reconstructs foot placement on objects (PRISM),
+      exhibits less position drift (UnderPressure), and captures slow weight-shifting motions (PSU-TMM100).
+    </p>
+
+    <!-- Quantitative table -->
+    <h3 style="font-size:1.15rem; font-weight:700; margin-bottom:16px; text-align:center;">
+      Quantitative Comparison
+    </h3>
+    <p style="text-align:center; font-size:0.88rem; color:#64748b; margin-bottom:20px;">
+      Lower values indicate better performance for all metrics.
+      <strong>Bold</strong> = best, <u>underline</u> = second best.
+    </p>
+    <div class="table-wrap">
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th>Dataset</th>
+            <th>Method</th>
+            <th>MPJPE↓<br/><small>[mm]</small></th>
+            <th>PEL-MPJPE↓<br/><small>[mm]</small></th>
+            <th>PA-MPJPE↓<br/><small>[mm]</small></th>
+            <th>MPJRE↓<br/><small>[deg]</small></th>
+            <th>Acc↓<br/><small>[m/s²]</small></th>
+            <th>FS↓<br/><small>[m/s]</small></th>
+            <th>FP↓<br/><small>[mm]</small></th>
+            <th>vGRF↓<br/><small>[N]</small></th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- PRISM -->
+          <tr class="method-row-header">
+            <td rowspan="6" class="dataset-label">PRISM</td>
+            <td>PIP</td>
+            <td>248.59</td><td>85.48</td><td class="second">33.35</td>
+            <td>17.08</td><td>6.68</td><td class="second">0.20</td>
+            <td>10.71</td><td class="best">246.85</td>
+          </tr>
+          <tr>
+            <td>GlobalPose</td>
+            <td class="second">198.30</td><td class="best">43.50</td><td class="best">31.29</td>
+            <td class="best">12.01</td><td>7.72</td><td>0.22</td>
+            <td class="second">9.72</td><td>299.22</td>
+          </tr>
+          <tr>
+            <td>MobilePoser</td>
+            <td>267.45</td><td>72.76</td><td>55.69</td>
+            <td>17.99</td><td class="best">6.20</td><td class="best">0.19</td>
+            <td>9.97</td><td class="second">248.54</td>
+          </tr>
+          <tr>
+            <td>FoRM</td>
+            <td>199.60</td><td>87.34</td><td>63.75</td>
+            <td>20.23</td><td>9.67</td><td>0.36</td>
+            <td>15.64</td><td>—</td>
+          </tr>
+          <tr>
+            <td>SolePoser</td>
+            <td>—</td><td>—</td><td>82.75</td>
+            <td>—</td><td>9.68</td><td>—</td>
+            <td>—</td><td>—</td>
+          </tr>
+          <tr class="our-method">
+            <td>GRIP (Ours)</td>
+            <td class="best">182.44</td><td class="second">63.85</td><td>46.47</td>
+            <td class="second">13.89</td><td class="second">7.30</td><td>0.21</td>
+            <td class="best">5.77</td><td>258.40</td>
+          </tr>
+          <!-- UnderPressure -->
+          <tr class="method-row-header">
+            <td rowspan="6" class="dataset-label">Under<br/>Pressure</td>
+            <td>PIP</td>
+            <td>523.65</td><td class="second">29.89</td><td class="second">21.08</td>
+            <td>8.35</td><td class="best">12.59</td><td class="second">0.32</td>
+            <td>1.43</td><td class="second">265.62</td>
+          </tr>
+          <tr>
+            <td>GlobalPose</td>
+            <td class="second">301.12</td><td class="best">21.49</td><td class="best">17.41</td>
+            <td class="best">7.40</td><td>16.65</td><td>0.32</td>
+            <td>3.31</td><td>287.12</td>
+          </tr>
+          <tr>
+            <td>MobilePoser</td>
+            <td>626.62</td><td>44.28</td><td>33.74</td>
+            <td>11.73</td><td class="second">12.62</td><td>0.35</td>
+            <td class="second">1.27</td><td class="best">244.78</td>
+          </tr>
+          <tr>
+            <td>FoRM</td>
+            <td>553.19</td><td>59.29</td><td>32.60</td>
+            <td>18.50</td><td>17.34</td><td>0.57</td>
+            <td>21.52</td><td>—</td>
+          </tr>
+          <tr>
+            <td>SolePoser</td>
+            <td>—</td><td>—</td><td>34.52</td>
+            <td>—</td><td>24.27</td><td>—</td>
+            <td>—</td><td>—</td>
+          </tr>
+          <tr class="our-method">
+            <td>GRIP (Ours)</td>
+            <td class="best">218.09</td><td>37.27</td><td>27.16</td>
+            <td class="second">7.64</td><td>13.22</td><td class="best">0.31</td>
+            <td class="best">0.00</td><td>278.27</td>
+          </tr>
+          <!-- PSU-TMM100 -->
+          <tr class="method-row-header">
+            <td rowspan="6" class="dataset-label">PSU-<br/>TMM100</td>
+            <td>PIP</td>
+            <td>182.14</td><td>87.56</td><td>61.62</td>
+            <td>21.12</td><td>1.62</td><td class="best">0.09</td>
+            <td>5.84</td><td>367.87</td>
+          </tr>
+          <tr>
+            <td>GlobalPose</td>
+            <td>175.96</td><td class="best">63.05</td><td class="best">50.28</td>
+            <td class="second">18.71</td><td>2.09</td><td>0.14</td>
+            <td class="second">2.95</td><td class="second">340.11</td>
+          </tr>
+          <tr>
+            <td>MobilePoser</td>
+            <td>210.66</td><td>112.35</td><td>85.46</td>
+            <td>28.10</td><td>2.37</td><td class="second">0.10</td>
+            <td>5.28</td><td>358.19</td>
+          </tr>
+          <tr>
+            <td>FoRM</td>
+            <td class="second">126.60</td><td>98.02</td><td>82.45</td>
+            <td>25.19</td><td class="second">1.60</td><td>0.13</td>
+            <td>4.51</td><td>—</td>
+          </tr>
+          <tr>
+            <td>SolePoser</td>
+            <td>—</td><td>—</td><td>97.11</td>
+            <td>—</td><td class="best">1.36</td><td>—</td>
+            <td>—</td><td>—</td>
+          </tr>
+          <tr class="our-method">
+            <td>GRIP (Ours)</td>
+            <td class="best">118.60</td><td class="second">70.32</td><td class="second">55.72</td>
+            <td class="best">16.72</td><td>4.31</td><td>0.11</td>
+            <td class="best">0.73</td><td class="best">316.06</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     KEY CONTRIBUTIONS
+════════════════════════════════════════ -->
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">Key Contributions</h2>
+    <div class="contribution-grid">
+      <div class="contribution-item">
+        <h3>Minimal Sensor Setup</h3>
+        <p>
+          GRIP achieves accurate full-body motion estimation using only four IMUs worn on the wrists
+          and feet, combined with insole pressure data&mdash;a setup practical for everyday use.
+        </p>
+      </div>
+      <div class="contribution-item">
+        <h3>Two-Stage Architecture</h3>
+        <p>
+          KinematicsNet + DynamicsNet enables observer&ndash;controller decomposition: kinematic
+          estimation feeds a physics-based humanoid controller, ensuring physically plausible motion
+          without auxiliary forces.
+        </p>
+      </div>
+      <div class="contribution-item">
+        <h3>PRISM Dataset</h3>
+        <p>
+          A new public multimodal dataset with 1,275 sequences (~3.5 hours) covering diverse motions,
+          synchronized IMU/pressure, optical MoCap, and physical object models for comprehensive evaluation.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     BIBTEX
+════════════════════════════════════════ -->
+<section class="section section-alt">
+  <div class="container">
+    <h2 class="section-title">BibTeX</h2>
+    <div class="bibtex-wrap">
+      <button class="copy-btn" onclick="copyBibtex()" id="copyBtn">
+        <i class="fas fa-copy"></i> Copy
+      </button>
+      <pre id="bibtex">@inproceedings{hori2026grip,
+    title     = {Ground Reaction Inertial Poser: Physics-based Human Motion Capture
+                 from Sparse IMUs and Insole Pressure Sensors},
+    author    = {Hori, Ryosuke and Song, Jyun-Ting and Luo, Zhengyi and Cao, Jinkun
+                 and Shin, Soyong and Saito, Hideo and Kitani, Kris},
+    booktitle = {Proceedings of the IEEE/CVF Conference on
+                 Computer Vision and Pattern Recognition (CVPR)},
+    year      = {2026}
+}</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════ -->
+<footer class="footer">
+  <p>
+    The website template is adapted from
+    <a href="https://yutoshibata07.github.io/AssistMimic/" target="_blank">AssistMimic</a>.
+  </p>
+</footer>
+
+<script>
+// ── BibTeX copy ───────────────────────────
+function copyBibtex() {
+  const text = document.getElementById('bibtex').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+    setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy"></i> Copy'; }, 2000);
+  });
+}
+
+// ── Infinite Slider ───────────────────────
+class InfiniteSlider {
+  constructor(trackId, dotsId) {
+    this.track   = document.getElementById(trackId);
+    this.dotsEl  = document.getElementById(dotsId);
+    this.slides  = Array.from(this.track.children); // original slides only
+    this.total   = this.slides.length;
+    this.pos     = 1;   // position in extended track (0 = clone-last, 1..N = real, N+1 = clone-first)
+    this.busy    = false;
+
+    // Prepend clone of last, append clone of first
+    const cloneFirst = this.slides[0].cloneNode(true);
+    const cloneLast  = this.slides[this.total - 1].cloneNode(true);
+    cloneFirst.setAttribute('aria-hidden', 'true');
+    cloneLast.setAttribute('aria-hidden', 'true');
+    this.track.appendChild(cloneFirst);
+    this.track.insertBefore(cloneLast, this.slides[0]);
+
+    // Set initial position (no animation)
+    this._move(1, false);
+
+    // After slide animation: if at a clone, jump to the real counterpart
+    this.track.addEventListener('transitionend', () => {
+      if (this.pos <= 0) {
+        this._move(this.total, false);
+      } else if (this.pos >= this.total + 1) {
+        this._move(1, false);
+      }
+      this.busy = false;
+      this._syncVideos();
+    });
+
+    this._syncVideos();
+  }
+
+  go(dir) {
+    if (this.busy) return;
+    this.busy = true;
+    this._move(this.pos + dir, true);
+    this._syncDots();
+  }
+
+  goTo(realIdx) {
+    if (this.busy) return;
+    this.busy = true;
+    this._move(realIdx + 1, true);
+    this._syncDots();
+  }
+
+  _move(pos, animate) {
+    this.pos = pos;
+    this.track.style.transition = animate
+      ? 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+      : 'none';
+    this.track.style.transform = `translateX(-${this.pos * 100}%)`;
+  }
+
+  _realIdx() {
+    return ((this.pos - 1) % this.total + this.total) % this.total;
+  }
+
+  _syncDots() {
+    const ri = this._realIdx();
+    Array.from(this.dotsEl.children).forEach((d, i) =>
+      d.classList.toggle('active', i === ri)
+    );
+  }
+
+  _syncVideos() {
+    const ri = this._realIdx();
+    this.slides.forEach((slide, i) => {
+      const v = slide.querySelector('video');
+      if (!v) return;
+      if (i === ri) { v.play(); } else { v.pause(); }
+    });
+  }
+}
+
+// ── Init sliders on DOM ready ─────────────
+document.addEventListener('DOMContentLoaded', () => {
+  window.datasetSlider = new InfiniteSlider('datasetTrack', 'datasetDots');
+  window.resultSlider  = new InfiniteSlider('resultTrack',  'resultDots');
+});
+</script>
+</body>
+</html>
